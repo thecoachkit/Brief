@@ -1,0 +1,35 @@
+name: Build APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Estrai il progetto dallo zip
+        run: unzip -q rip-android.zip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Scarica il modello vocale italiano
+        working-directory: rip-android
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fL -o model.zip https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip
+          unzip -q model.zip -d app/src/main/assets
+          mv app/src/main/assets/vosk-model-small-it-0.22 app/src/main/assets/model-it
+          rm model.zip
+          ls app/src/main/assets/model-it
+      - name: Compila l'APK
+        working-directory: rip-android
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rip-apk
+          path: rip-android/app/build/outputs/apk/debug/app-debug.apk
