@@ -8,8 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Estrai il progetto dallo zip
-        run: unzip -q rip-android.zip
+        with:
+          fetch-depth: 0
+      - name: Trova ed estrai lo zip del progetto più recente
+        run: |
+          ZIP="$(git -c core.quotePath=false log -1 --name-only --diff-filter=AM --format= -- '*.zip' | grep -m1 .)" || true
+          if [ -z "$ZIP" ]; then echo "Nessuno zip trovato nel repository"; exit 1; fi
+          echo "Uso lo zip: $ZIP"
+          git -c core.quotePath=false log -1 --format='Caricato il %ci' -- "$ZIP"
+          unzip -q "$ZIP"
+          ls
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -17,7 +25,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - name: Scarica il modello vocale italiano
+      - name: Scarica il modello vocale italiano (Vosk, Apache 2.0)
         working-directory: rip-android
         run: |
           mkdir -p app/src/main/assets
