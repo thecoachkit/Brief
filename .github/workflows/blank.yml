@@ -5,9 +5,9 @@ on:
     branches: [main]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Trova ed estrai lo zip del progetto più recente
@@ -18,11 +18,11 @@ jobs:
           git -c core.quotePath=false log -1 --format='Caricato il %ci' -- "$ZIP"
           unzip -q "$ZIP"
           ls
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         with:
           gradle-version: "8.7"
       - name: Scarica il modello vocale italiano (Vosk, Apache 2.0)
@@ -37,7 +37,7 @@ jobs:
       - name: Compila l'APK
         working-directory: rip-android
         run: gradle assembleDebug --no-daemon
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: rip-apk
           path: rip-android/app/build/outputs/apk/debug/app-debug.apk
