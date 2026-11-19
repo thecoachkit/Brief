@@ -15,9 +15,37 @@ jobs:
           ZIP="$(git -c core.quotePath=false log -1 --name-only --diff-filter=AM --format= -- '*.zip' | grep -m1 .)" || true
           if [ -z "$ZIP" ]; then echo "Nessuno zip trovato nel repository"; exit 1; fi
           echo "Uso lo zip: $ZIP"
-          git -c core.quotePath=false log -1 --format='Caricato il %ci' -- "$ZIP"
           unzip -q "$ZIP"
           ls
+      - name: Applica aggiornamenti PDF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("rip-android/app/src/main/java/it/rip/riepilogo")
+          main = root / "MainActivity.kt"
+          pdf = root / "PdfBuilder.kt"
+          def replace_exact(path, old, new):
+              text = path.read_text()
+              if text.count(old) != 1:
+                  raise RuntimeError(f"Modifica non applicabile a {path}: occorrenze {text.count(old)}")
+              path.write_text(text.replace(old, new))
+          replace_exact(main,
+              '            SimpleDateFormat("dd/MM/yyyy", Locale.ITALY).format(now),\n            SimpleDateFormat("dd/MM/yyyy \'alle\' HH:mm", Locale.ITALY).format(now)',
+              '            SimpleDateFormat("dd/MM/yyyy", Locale.ITALY).format(now)')
+          replace_exact(pdf,
+              'fun build(context: Context, blocks: List<SessionParser.Block>, date: String, generatedAt: String): ByteArray',
+              'fun build(context: Context, blocks: List<SessionParser.Block>, date: String): ByteArray')
+          replace_exact(pdf,
+              '        val footP = paint(9f, geologica(context, bold = false), mutedBrown)\n',
+              '')
+          replace_exact(pdf,
+              '        for (b in blocks) {',
+              '        val pdfBlocks = blocks.sortedBy { if (it.title == SessionParser.Key.OBIETTIVO.title) 0 else 1 }\n        for (b in pdfBlocks) {')
+          replace_exact(pdf,
+              '        w.space(4f)\n        w.rule(rulePaint)\n        w.space(8f)\n        w.draw(layout("Generato il $generatedAt", footP, width, Layout.Alignment.ALIGN_CENTER), MARGIN)\n',
+              '')
+          print("PDF aggiornato: obiettivo al primo posto; data di generazione rimossa")
+          PY
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
