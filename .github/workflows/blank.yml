@@ -46,6 +46,70 @@ jobs:
               '')
           print("PDF aggiornato: obiettivo al primo posto; data di generazione rimossa")
           PY
+      - name: Selezione manuale data e titoli PDF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("rip-android/app/src/main/java/it/rip/riepilogo")
+          main = root / "MainActivity.kt"
+          pdf = root / "PdfBuilder.kt"
+          def change(path, before, after):
+              s = path.read_text()
+              if s.count(before) != 1:
+                  raise RuntimeError(f"Atteso esattamente un riferimento in {path}: {before[:80]!r}; trovati {s.count(before)}")
+              path.write_text(s.replace(before, after))
+          change(main, "import android.app.AlertDialog\n", "import android.app.AlertDialog\nimport android.app.DatePickerDialog\n")
+          change(main, "import java.util.Date\n", "import java.util.Date\nimport java.util.Calendar\n")
+          change(main,
+              '        btnSave.setOnClickListener { savePdf() }\n        btnShare.setOnClickListener { sharePdf() }',
+              '        btnSave.setOnClickListener { askSessionDate { date -> savePdf(date) } }\n        btnShare.setOnClickListener { askSessionDate { date -> sharePdf(date) } }')
+          change(main,
+              '    /** Genera il PDF dal testo che c’è ora nei riquadri (quindi con le tue correzioni). */',
+              '    /** Genera il PDF dal testo che c’è ora nei riquadri (quindi con le tue correzioni). */') if False else None
+          change(main,
+              '    private fun renderPdf(): ByteArray {',
+              '''    /** Chiede la data effettiva della sessione prima di salvare o condividere. */
+              private fun askSessionDate(onSelected: (String) -> Unit) {
+                  val today = Calendar.getInstance()
+                  DatePickerDialog(
+                      this,
+                      { _, year, month, day ->
+                          val chosen = String.format(Locale.ITALY, "%02d/%02d/%04d", day, month + 1, year)
+                          onSelected(chosen)
+                      },
+                      today.get(Calendar.YEAR),
+                      today.get(Calendar.MONTH),
+                      today.get(Calendar.DAY_OF_MONTH)
+                  ).apply {
+                      setTitle("Data della sessione")
+                      show()
+                  }
+              }
+
+              private fun renderPdf(sessionDate: String): ByteArray {'''.replace('\n              ', '\n    '))
+          change(main,
+              '''        val now = Date()
+                  pdfName = "riepilogo_" + SimpleDateFormat("ddMMyyyy_HHmm", Locale.ITALY).format(now) + ".pdf"
+                  return PdfBuilder.build(
+                      this,
+                      SessionParser.finalBlocks(edited),
+                      SimpleDateFormat("dd/MM/yyyy", Locale.ITALY).format(now)
+                  )'''.replace('\n                  ', '\n        '),
+              '''        val now = Date()
+                  val fileDate = sessionDate.replace("/", "")
+                  pdfName = "riepilogo_" + fileDate + "_" + SimpleDateFormat("HHmmss", Locale.ITALY).format(now) + ".pdf"
+                  return PdfBuilder.build(
+                      this,
+                      SessionParser.finalBlocks(edited),
+                      sessionDate
+                  )'''.replace('\n                  ', '\n        '))
+          change(main, '    private fun savePdf() {', '    private fun savePdf(sessionDate: String) {')
+          change(main, '            pdf = renderPdf()', '            pdf = renderPdf(sessionDate)')
+          change(main, '    private fun sharePdf() {', '    private fun sharePdf(sessionDate: String) {')
+          change(main, '            val bytes = renderPdf()', '            val bytes = renderPdf(sessionDate)')
+          change(pdf, 'b.title.uppercase(Locale.ITALY)', 'b.title')
+          print("Data sessione selezionabile e titoli PDF in grassetto senza maiuscolo forzato.")
+          PY
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
